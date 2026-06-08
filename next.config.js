@@ -1,9 +1,7 @@
 /** @type {import('next').NextConfig} */
+const path = require('path')
 const nextConfig = {
   output: 'standalone',
-  turbopack: {
-    root: process.cwd(),
-  },
 }
 
 module.exports = nextConfig

@@ -2,78 +2,37 @@
 
 import { useEffect, useState, useCallback } from 'react'
 
-// Expected FX rates for peg deviation display
-const FX_EXPECTED: Record<string, number> = {
-  KESm: 0.00768, NGNm: 0.00065, GHSm: 0.0685, ZARm: 0.0535,
-  PHPm: 0.0173, XOFm: 0.00168, BRLm: 0.194, EURm: 1.15, GBPm: 1.35,
-}
-
 interface ScanResult {
   block: number
   timestamp: string
   pairs: Record<string, { source: string; rate: number }[]>
   opportunities: {
     type: string; name: string; spreadPct: number; profitable: boolean
-    pair?: string; legs?: number[]; best?: any; worst?: any
+    pair?: string; legs?: number[]
   }[]
   alerts: { type: string; name: string; spreadPct: number; profitable: boolean; pair?: string }[]
 }
 
-function SpreadBadge({ pct }: { pct: number }) {
-  const color = pct > 0.1 ? 'bg-red-500/20 text-red-400' :
-                pct > 0.01 ? 'bg-yellow-500/20 text-yellow-400' :
-                             'bg-green-500/20 text-green-400'
-  const icon = pct > 0.1 ? '🔴' : pct > 0.01 ? '🟡' : '🟢'
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-mono ${color}`}>
-      {icon} {pct > 0 ? '+' : ''}{pct.toFixed(4)}%
-    </span>
-  )
+const FX_EXPECTED: Record<string, number> = {
+  KESm: 0.00768, NGNm: 0.00065, GHSm: 0.0685, ZARm: 0.0535,
+  PHPm: 0.0173, XOFm: 0.00168, BRLm: 0.194, EURm: 1.15, GBPm: 1.35,
 }
 
-function AlertBanner({ count }: { count: number }) {
-  if (count === 0) return null
-  return (
-    <div className="bg-gradient-to-r from-yellow-600/80 to-red-600/80 text-white px-4 py-3 rounded-lg mb-4 flex items-center gap-2 animate-pulse">
-      <span className="text-xl">🚨</span>
-      <span className="font-semibold">{count} actionable opportunity{count > 1 ? 'ies' : 'y'} detected</span>
-    </div>
-  )
+function spreadClass(pct: number): string {
+  if (pct > 0.1) return 'high'
+  if (pct > 0.01) return 'medium'
+  return 'low'
 }
 
-function PairRow({ pair, rates }: { pair: string; rates: { source: string; rate: number }[] }) {
-  const [base] = pair.split('/')
-  const expected = FX_EXPECTED[base]
-  const best = rates.reduce((a, b) => a.rate > b.rate ? a : b)
-  const dev = expected ? ((best.rate / expected) - 1) * 100 : null
-  return (
-    <div className="bg-[#1a1a2e] border border-[#2a2a3e] rounded-xl p-4 flex items-center justify-between">
-      <div>
-        <span className="text-sm text-gray-400 font-mono">{pair}</span>
-        {dev !== null && (
-          <span className={`ml-2 text-xs font-mono ${
-            Math.abs(dev) > 1 ? 'text-red-400' : Math.abs(dev) > 0.1 ? 'text-yellow-400' : 'text-green-400'
-          }`}>
-            {dev > 0 ? '+' : ''}{dev.toFixed(2)}% vs peg
-          </span>
-        )}
-      </div>
-      <div className="flex items-center gap-3">
-        {rates.slice(0, 3).map(r => (
-          <span key={r.source} className="text-sm font-mono text-gray-300">
-            <span className="text-xs text-gray-500">{r.source.split('-')[1] || r.source}</span>{' '}
-            {r.rate.toFixed(6)}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
+function formatSpread(pct: number): string {
+  return `${pct > 0 ? '+' : ''}${pct.toFixed(4)}%`
 }
 
 export default function Home() {
   const [data, setData] = useState<ScanResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTicker, setActiveTicker] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
@@ -97,102 +56,196 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [fetchData])
 
+  const tickerSymbols = ['KESm/USDm', 'XOFm/USDm', 'BRLm/USDm', 'EURm/USDm', 'USDC/USDm', 'USDT/USDm', 'GBPm/USDm', 'NGNm/USDm', 'GHSm/USDm', 'ZARm/USDm']
+
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6" style={{ background: '#0f0f1a', minHeight: '100vh' }}>
+    <div className="app-container">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <span style={{ color: '#35D07F' }}>◈</span> Celo Arb Scanner
-          </h1>
-          <p className="text-sm" style={{ color: '#6b7280' }}>
-            Cross-stable & triangular arbitrage on Celo
-            {data && <span className="ml-2">· Block #{data.block.toLocaleString()}</span>}
-          </p>
-        </div>
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="px-4 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
-          style={{ background: 'rgba(53,208,127,0.1)', color: '#35D07F' }}
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-              Scanning
+      <div className="app-header">
+        <div className="app-brand">
+          <div className="app-logo">◈</div>
+          <h1>Celo Arb Terminal</h1>
+          <span className="version">v1</span>
+          {data && (
+            <span className="app-meta">
+              <span>#{data.block.toLocaleString()}</span>
+              <span>|</span>
+              <span>{Object.keys(data.pairs).length} pairs</span>
             </span>
-          ) : '⟳ Refresh'}
+          )}
+        </div>
+        <button className="btn-refresh" onClick={fetchData} disabled={loading}>
+          {loading && <span className="loading-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />}
+          {loading ? 'SCANNING' : '⟳ REFRESH'}
         </button>
       </div>
 
-      {/* Alerts */}
-      {data && <AlertBanner count={data.alerts.length} />}
-
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg mb-4">
-          {error}
+      {/* Ticker Bar */}
+      {data && (
+        <div className="ticker-bar">
+          {tickerSymbols.map(sym => {
+            const rates = data.pairs[sym]
+            if (!rates || rates.length === 0) return null
+            const best = rates.reduce((a, b) => a.rate > b.rate ? a : b)
+            const [base] = sym.split('/')
+            const expected = FX_EXPECTED[base]
+            const dev = expected ? ((best.rate / expected) - 1) * 100 : null
+            const devClass = dev && Math.abs(dev) > 0.1
+              ? (dev > 0 ? 'gain' : 'loss') : ''
+            return (
+              <div
+                key={sym}
+                className={`ticker-item ${activeTicker === sym ? 'active' : ''}`}
+                onClick={() => setActiveTicker(activeTicker === sym ? null : sym)}
+              >
+                <span className="ticker-symbol">{sym.split('/')[0]}</span>
+                <span style={{ color: 'var(--text-primary)' }}>{best.rate.toFixed(6)}</span>
+                {dev !== null && (
+                  <span className={`data-value ${devClass}`} style={{ fontSize: 11 }}>
+                    {dev > 0 ? '+' : ''}{dev.toFixed(2)}%
+                  </span>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* Loading state */}
+      {/* Error */}
+      {error && (
+        <div className="panel" style={{ borderColor: 'var(--color-loss)', marginBottom: 'var(--sp-4)' }}>
+          <div className="panel-body" style={{ color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+            ERR: {error}
+          </div>
+        </div>
+      )}
+
+      {/* Loading */}
       {loading && !data && (
-        <div className="flex flex-col items-center justify-center py-20">
-          <div className="w-10 h-10 border-2 border-[#35D07F] border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-gray-500 text-sm">Scanning Celo blockchain...</p>
+        <div className="loading-screen">
+          <div className="loading-spinner" />
+          <span style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', fontSize: 13, letterSpacing: '0.05em' }}>
+            CONNECTING TO CELO MAINNET
+          </span>
         </div>
       )}
 
       {data && (
         <>
-          {/* Alert Details */}
+          {/* Alert Banner */}
           {data.alerts.length > 0 && (
-            <div className="bg-[#1a1a2e] border border-yellow-500/30 rounded-xl p-4 mb-4">
-              <h2 className="text-sm font-semibold text-yellow-400 mb-3">🚨 Actionable Opportunities</h2>
-              <div className="space-y-2">
-                {data.alerts.map((a, i) => (
-                  <div key={i} className="flex items-center justify-between text-sm">
-                    <span className="font-mono text-gray-200">
-                      {a.type === 'triangular' ? `△ ${a.name}` : `○ ${a.pair || a.name} venue arb`}
-                    </span>
-                    <SpreadBadge pct={a.spreadPct} />
+            <div className="alert-banner">
+              <span style={{ fontWeight: 600 }}>{data.alerts.length} SIGNAL{data.alerts.length > 1 ? 'S' : ''}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                {data.alerts.map(a => a.type === 'triangular' ? a.name : a.pair || a.name).join(' · ')}
+              </span>
+            </div>
+          )}
+
+          {/* Split Panels */}
+          <div className="split-panels">
+            {/* Opportunities */}
+            <div className="panel" style={{ border: 'none' }}>
+              <div className="panel-header">
+                <span>Arbitrage Opportunities</span>
+                <span className="data-value neutral" style={{ fontSize: 11 }}>
+                  {data.opportunities.filter(o => o.spreadPct > 0).length} active
+                </span>
+              </div>
+              <div className="opp-scroll">
+                {data.opportunities.length === 0 && (
+                  <div className="data-row" style={{ justifyContent: 'center', color: 'var(--text-tertiary)' }}>
+                    No arbitrage windows detected
+                  </div>
+                )}
+                {data.opportunities.map((o, i) => {
+                  const isAlert = o.spreadPct >= 0.01
+                  return (
+                    <div key={i} className={`opp-item ${isAlert ? 'alert' : ''}`}>
+                      <div className="opp-name">
+                        <span className={`indicator ${o.type === 'triangular' ? 'triangle' : 'venue'}`}>
+                          {o.type === 'triangular' ? '△' : '○'}
+                        </span>
+                        <span>
+                          {o.type === 'triangular' ? o.name : (o.pair || o.name) + ' venue'}
+                        </span>
+                      </div>
+                      <span className={`spread-badge ${spreadClass(o.spreadPct)}`}>
+                        {formatSpread(o.spreadPct)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Exchange Rates */}
+            <div className="panel" style={{ border: 'none', borderLeft: '1px solid var(--border-default)' }}>
+              <div className="panel-header">
+                <span>Exchange Rates</span>
+                <span className="data-value neutral" style={{ fontSize: 11 }}>
+                  {Object.keys(data.pairs).length} pairs
+                </span>
+              </div>
+              <div className="opp-scroll">
+                {Object.entries(data.pairs).map(([pair, rates]) => {
+                  const [base] = pair.split('/')
+                  const expected = FX_EXPECTED[base]
+                  const best = rates.reduce((a, b) => a.rate > b.rate ? a : b)
+                  const dev = expected ? ((best.rate / expected) - 1) * 100 : null
+                  return (
+                    <div key={pair} className="data-row">
+                      <span className="data-label">{pair}</span>
+                      <div style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'center' }}>
+                        {rates.slice(0, 2).map(r => (
+                          <span key={r.source} className="data-value" style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>
+                              {r.source.split('-')[1]}
+                            </span>
+                            {' '}{r.rate.toFixed(6)}
+                          </span>
+                        ))}
+                        {dev !== null && (
+                          <span className={`data-value ${
+                            Math.abs(dev) > 0.1 ? (dev > 0 ? 'gain' : 'loss') : 'neutral'
+                          }`} style={{ fontSize: 11, minWidth: 56, textAlign: 'right' }}>
+                            {dev > 0 ? '+' : ''}{dev.toFixed(2)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Active Ticker Detail */}
+          {activeTicker && data.pairs[activeTicker] && (
+            <div className="panel" style={{ marginTop: 'var(--sp-4)' }}>
+              <div className="panel-header">{activeTicker} — All Fee Tiers</div>
+              <div className="detail-grid">
+                {data.pairs[activeTicker].map(r => (
+                  <div key={r.source} className="detail-cell">
+                    <div className="label">{r.source}</div>
+                    <div className="value">{r.rate.toFixed(6)}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* All Opportunities */}
-          <div className="bg-[#1a1a2e] border border-[#2a2a3e] rounded-xl p-4 mb-4">
-            <h2 className="text-sm font-semibold text-gray-400 mb-3">📊 All Opportunities</h2>
-            <div className="space-y-1.5">
-              {data.opportunities.length === 0 && (
-                <p className="text-gray-600 text-sm">No arbitrage windows detected this scan</p>
-              )}
-              {data.opportunities.map((o, i) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="font-mono text-gray-300">
-                    {o.type === 'triangular' ? `△ ${o.name}` : `○ ${o.pair || o.name} venue arb`}
-                  </span>
-                  <SpreadBadge pct={o.spreadPct} />
-                </div>
-              ))}
+          {/* Status Bar */}
+          <div className="status-bar">
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span className="status-dot" />
+              <span>LIVE</span>
+              <span style={{ margin: '0 var(--sp-3)', color: 'var(--border-accent)' }}>|</span>
+              <span>30s REFRESH</span>
+              <span style={{ margin: '0 var(--sp-3)', color: 'var(--border-accent)' }}>|</span>
+              <span>CELO MAINNET</span>
             </div>
-          </div>
-
-          {/* Key Rates */}
-          <div className="grid gap-3">
-            <h2 className="text-sm font-semibold text-gray-400">💱 Exchange Rates</h2>
-            {Object.entries(data.pairs).length === 0 && (
-              <p className="text-gray-600 text-sm">No rates returned from scan</p>
-            )}
-            {Object.entries(data.pairs).map(([pair, rates]) => (
-              <PairRow key={pair} pair={pair} rates={rates} />
-            ))}
-          </div>
-
-          {/* Footer */}
-          <div className="mt-6 text-center text-xs" style={{ color: '#4b5563' }}>
-            Last scan: {new Date(data.timestamp).toLocaleTimeString()} · Refreshes every 30s · Data from Celo mainnet
+            <div>{data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—'}</div>
           </div>
         </>
       )}
