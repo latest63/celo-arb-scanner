@@ -82,31 +82,33 @@ export default function Home() {
 
       {/* Ticker */}
       {data && (
-        <div className="ticker-bar">
-          {tickerSymbols.map(sym => {
-            const rates = data.pairs[sym]
-            if (!rates || rates.length === 0) return null
-            const best = rates.reduce((a, b) => a.rate > b.rate ? a : b)
-            const [base] = sym.split('/')
-            const expected = FX_EXPECTED[base]
-            const dev = expected ? ((best.rate / expected) - 1) * 100 : null
-            const devClass = dev && Math.abs(dev) > 0.1 ? (dev > 0 ? 'gain' : 'loss') : ''
-            return (
-              <div
-                key={sym}
-                className={`ticker-item ${activeTicker === sym ? 'active' : ''}`}
-                onClick={() => setActiveTicker(activeTicker === sym ? null : sym)}
-              >
-                <span className="ticker-symbol">{sym.split('/')[0]}</span>
-                <span style={{ color: 'var(--text-primary)' }}>{best.rate.toFixed(6)}</span>
-                {dev !== null && (
-                  <span className={`data-value ${devClass}`} style={{ fontSize: 11 }}>
-                    {dev > 0 ? '+' : ''}{dev.toFixed(2)}%
-                  </span>
-                )}
-              </div>
-            )
-          })}
+        <div className="ticker-wrapper">
+          <div className="ticker-bar">
+            {[...tickerSymbols, ...tickerSymbols].map((sym, idx) => {
+              const rates = data.pairs[sym]
+              if (!rates || rates.length === 0) return null
+              const best = rates.reduce((a, b) => a.rate > b.rate ? a : b)
+              const [base] = sym.split('/')
+              const expected = FX_EXPECTED[base]
+              const dev = expected ? ((best.rate / expected) - 1) * 100 : null
+              const devClass = dev && Math.abs(dev) > 0.1 ? (dev > 0 ? 'gain' : 'loss') : ''
+              return (
+                <div
+                  key={`${sym}-${idx}`}
+                  className={`ticker-item ${activeTicker === sym ? 'active' : ''}`}
+                  onClick={() => setActiveTicker(activeTicker === sym ? null : sym)}
+                >
+                  <span className="ticker-symbol">{sym.split('/')[0]}</span>
+                  <span style={{ color: 'var(--text-primary)' }}>{best.rate.toFixed(6)}</span>
+                  {dev !== null && (
+                    <span className={`data-value ${devClass}`} style={{ fontSize: 11 }}>
+                      {dev > 0 ? '+' : ''}{dev.toFixed(2)}%
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

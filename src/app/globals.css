@@ -152,25 +152,52 @@ body {
   }
 }
 
-/* ── Ticker Bar ── */
-.ticker-bar {
-  display: flex;
-  gap: var(--sp-4);
-  overflow-x: auto;
-  padding: var(--sp-3) var(--sp-4);
+/* ── Celo Gradient Ticker ── */
+.ticker-wrapper {
+  overflow: hidden;
   margin-bottom: var(--sp-6);
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
+  position: relative;
+}
+.ticker-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  background: linear-gradient(to right, transparent, var(--bg-surface));
+  z-index: 2;
+  pointer-events: none;
+}
+.ticker-bar {
+  display: flex;
+  gap: var(--sp-6);
+  padding: var(--sp-3) var(--sp-4);
+  animation: ticker-scroll 30s linear infinite;
+  width: max-content;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
+.ticker-bar:hover {
+  animation-play-state: paused;
+}
 .ticker-bar::-webkit-scrollbar { display: none; }
 
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
 @media (max-width: 768px) {
+  .ticker-wrapper {
+    margin-bottom: var(--sp-3);
+  }
   .ticker-bar {
     padding: var(--sp-2) var(--sp-2);
-    gap: var(--sp-2);
-    margin-bottom: var(--sp-3);
+    gap: var(--sp-3);
+    animation-duration: 20s;
   }
 }
 
