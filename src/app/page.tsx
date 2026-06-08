@@ -64,23 +64,23 @@ export default function Home() {
       <div className="app-header">
         <div className="app-brand">
           <div className="app-logo">◈</div>
-          <h1>Celo Arb Terminal</h1>
+          <h1>Celo Arb</h1>
           <span className="version">v1</span>
           {data && (
             <span className="app-meta">
               <span>#{data.block.toLocaleString()}</span>
               <span>|</span>
-              <span>{Object.keys(data.pairs).length} pairs</span>
+              <span>{Object.keys(data.pairs).length}p</span>
             </span>
           )}
         </div>
         <button className="btn-refresh" onClick={fetchData} disabled={loading}>
-          {loading && <span className="loading-spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />}
-          {loading ? 'SCANNING' : '⟳ REFRESH'}
+          {loading && <span className="loading-spinner" style={{ width: 10, height: 10, borderWidth: 1.5, display: 'inline-block' }} />}
+          {loading ? '…' : '⟳'}
         </button>
       </div>
 
-      {/* Ticker Bar */}
+      {/* Ticker */}
       {data && (
         <div className="ticker-bar">
           {tickerSymbols.map(sym => {
@@ -90,8 +90,7 @@ export default function Home() {
             const [base] = sym.split('/')
             const expected = FX_EXPECTED[base]
             const dev = expected ? ((best.rate / expected) - 1) * 100 : null
-            const devClass = dev && Math.abs(dev) > 0.1
-              ? (dev > 0 ? 'gain' : 'loss') : ''
+            const devClass = dev && Math.abs(dev) > 0.1 ? (dev > 0 ? 'gain' : 'loss') : ''
             return (
               <div
                 key={sym}
@@ -114,7 +113,7 @@ export default function Home() {
       {/* Error */}
       {error && (
         <div className="panel" style={{ borderColor: 'var(--color-loss)', marginBottom: 'var(--sp-4)' }}>
-          <div className="panel-body" style={{ color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+          <div className="panel-body" style={{ padding: 'var(--sp-3)', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
             ERR: {error}
           </div>
         </div>
@@ -125,29 +124,29 @@ export default function Home() {
         <div className="loading-screen">
           <div className="loading-spinner" />
           <span style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)', fontSize: 13, letterSpacing: '0.05em' }}>
-            CONNECTING TO CELO MAINNET
+            SCANNING CELO
           </span>
         </div>
       )}
 
       {data && (
         <>
-          {/* Alert Banner */}
+          {/* Alerts */}
           {data.alerts.length > 0 && (
             <div className="alert-banner">
               <span style={{ fontWeight: 600 }}>{data.alerts.length} SIGNAL{data.alerts.length > 1 ? 'S' : ''}</span>
-              <span style={{ color: 'var(--text-secondary)' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 'inherit' }}>
                 {data.alerts.map(a => a.type === 'triangular' ? a.name : a.pair || a.name).join(' · ')}
               </span>
             </div>
           )}
 
-          {/* Split Panels */}
+          {/* Panels */}
           <div className="split-panels">
-            {/* Opportunities */}
+            {/* Left: Opportunities */}
             <div className="panel" style={{ border: 'none' }}>
               <div className="panel-header">
-                <span>Arbitrage Opportunities</span>
+                <span>Opportunities</span>
                 <span className="data-value neutral" style={{ fontSize: 11 }}>
                   {data.opportunities.filter(o => o.spreadPct > 0).length} active
                 </span>
@@ -155,34 +154,31 @@ export default function Home() {
               <div className="opp-scroll">
                 {data.opportunities.length === 0 && (
                   <div className="data-row" style={{ justifyContent: 'center', color: 'var(--text-tertiary)' }}>
-                    No arbitrage windows detected
+                    No arb windows
                   </div>
                 )}
-                {data.opportunities.map((o, i) => {
-                  const isAlert = o.spreadPct >= 0.01
-                  return (
-                    <div key={i} className={`opp-item ${isAlert ? 'alert' : ''}`}>
-                      <div className="opp-name">
-                        <span className={`indicator ${o.type === 'triangular' ? 'triangle' : 'venue'}`}>
-                          {o.type === 'triangular' ? '△' : '○'}
-                        </span>
-                        <span>
-                          {o.type === 'triangular' ? o.name : (o.pair || o.name) + ' venue'}
-                        </span>
-                      </div>
-                      <span className={`spread-badge ${spreadClass(o.spreadPct)}`}>
-                        {formatSpread(o.spreadPct)}
+                {data.opportunities.map((o, i) => (
+                  <div key={i} className={`opp-item ${o.spreadPct >= 0.01 ? 'alert' : ''}`}>
+                    <div className="opp-name">
+                      <span className={`indicator ${o.type === 'triangular' ? 'tri' : 'venue'}`}>
+                        {o.type === 'triangular' ? '△' : '○'}
+                      </span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {o.type === 'triangular' ? o.name : (o.pair || o.name)}
                       </span>
                     </div>
-                  )
-                })}
+                    <span className={`spread-badge ${spreadClass(o.spreadPct)}`}>
+                      {formatSpread(o.spreadPct)}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Exchange Rates */}
+            {/* Right: Rates */}
             <div className="panel" style={{ border: 'none', borderLeft: '1px solid var(--border-default)' }}>
               <div className="panel-header">
-                <span>Exchange Rates</span>
+                <span>Rates</span>
                 <span className="data-value neutral" style={{ fontSize: 11 }}>
                   {Object.keys(data.pairs).length} pairs
                 </span>
@@ -196,19 +192,17 @@ export default function Home() {
                   return (
                     <div key={pair} className="data-row">
                       <span className="data-label">{pair}</span>
-                      <div style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                         {rates.slice(0, 2).map(r => (
                           <span key={r.source} className="data-value" style={{ fontSize: 12 }}>
-                            <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>
-                              {r.source.split('-')[1]}
-                            </span>
+                            <span style={{ color: 'var(--text-tertiary)', fontSize: 10 }}>{r.source.split('-')[1]}</span>
                             {' '}{r.rate.toFixed(6)}
                           </span>
                         ))}
                         {dev !== null && (
                           <span className={`data-value ${
                             Math.abs(dev) > 0.1 ? (dev > 0 ? 'gain' : 'loss') : 'neutral'
-                          }`} style={{ fontSize: 11, minWidth: 56, textAlign: 'right' }}>
+                          }`} style={{ fontSize: 11, minWidth: 48, textAlign: 'right' }}>
                             {dev > 0 ? '+' : ''}{dev.toFixed(2)}%
                           </span>
                         )}
@@ -220,10 +214,10 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Active Ticker Detail */}
+          {/* Ticker Detail */}
           {activeTicker && data.pairs[activeTicker] && (
             <div className="panel" style={{ marginTop: 'var(--sp-4)' }}>
-              <div className="panel-header">{activeTicker} — All Fee Tiers</div>
+              <div className="panel-header">{activeTicker} — Fee Tiers</div>
               <div className="detail-grid">
                 {data.pairs[activeTicker].map(r => (
                   <div key={r.source} className="detail-cell">
@@ -235,15 +229,15 @@ export default function Home() {
             </div>
           )}
 
-          {/* Status Bar */}
+          {/* Status */}
           <div className="status-bar">
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
               <span className="status-dot" />
               <span>LIVE</span>
               <span style={{ margin: '0 var(--sp-3)', color: 'var(--border-accent)' }}>|</span>
-              <span>30s REFRESH</span>
+              <span>30s</span>
               <span style={{ margin: '0 var(--sp-3)', color: 'var(--border-accent)' }}>|</span>
-              <span>CELO MAINNET</span>
+              <span>CELO</span>
             </div>
             <div>{data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—'}</div>
           </div>
