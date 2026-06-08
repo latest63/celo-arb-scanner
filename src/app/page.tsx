@@ -152,26 +152,50 @@ export default function Home() {
                 </span>
               </div>
               <div className="opp-scroll">
-                {data.opportunities.length === 0 && (
-                  <div className="data-row" style={{ justifyContent: 'center', color: 'var(--text-tertiary)' }}>
-                    No arb windows
-                  </div>
-                )}
-                {data.opportunities.map((o, i) => (
-                  <div key={i} className={`opp-item ${o.spreadPct >= 0.01 ? 'alert' : ''}`}>
-                    <div className="opp-name">
-                      <span className={`indicator ${o.type === 'triangular' ? 'tri' : 'venue'}`}>
-                        {o.type === 'triangular' ? '△' : '○'}
-                      </span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {o.type === 'triangular' ? o.name : (o.pair || o.name)}
-                      </span>
-                    </div>
-                    <span className={`spread-badge ${spreadClass(o.spreadPct)}`}>
-                      {formatSpread(o.spreadPct)}
-                    </span>
-                  </div>
-                ))}
+                <table className="opp-table">
+                  <thead>
+                    <tr>
+                      <th className="col-type"></th>
+                      <th className="col-name">Route</th>
+                      <th className="col-spread">Spread</th>
+                      <th className="col-status">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.opportunities.length === 0 && (
+                      <tr>
+                        <td colSpan={4} style={{ padding: 'var(--sp-6) var(--sp-3)', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 12 }}>
+                          No arbitrage windows detected
+                        </td>
+                      </tr>
+                    )}
+                    {data.opportunities.map((o, i) => (
+                      <tr key={i}>
+                        <td className="col-type">
+                          <span className={`type-icon ${o.type === 'triangular' ? 'tri' : 'venue'}`}>
+                            {o.type === 'triangular' ? '△' : '○'}
+                          </span>
+                        </td>
+                        <td className="col-name">
+                          <span className="name-text">
+                            {o.type === 'triangular' ? o.name : (o.pair || o.name)}
+                          </span>
+                        </td>
+                        <td className="col-spread">
+                          <span className={`spread-badge ${spreadClass(o.spreadPct)}`}>
+                            {formatSpread(o.spreadPct)}
+                          </span>
+                        </td>
+                        <td className="col-status">
+                          <span className={`data-value ${o.spreadPct >= 0.01 ? 'warning' : 'neutral'}`}
+                                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {o.spreadPct >= 0.01 ? 'signal' : 'flat'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 
