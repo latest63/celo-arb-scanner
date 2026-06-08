@@ -1,38 +1,14 @@
 @import "tailwindcss";
 
-:root {
-  --bg: #0f0f1a;
-  --card: #1a1a2e;
-  --border: #2a2a3e;
-  --text: #e0e0e0;
-  --green: #35D07F;
-  --red: #ff4757;
-  --yellow: #ffa502;
-  --blue: #4a90d9;
-}
-
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Inter', -apple-system, sans-serif;
-}
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.25rem;
-}
-
-.pulse {
-  animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
