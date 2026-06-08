@@ -3,13 +3,9 @@
 import { useEffect, useState, useCallback } from 'react'
 
 interface ScanResult {
-  block: number
-  timestamp: string
+  block: number; timestamp: string
   pairs: Record<string, { source: string; rate: number }[]>
-  opportunities: {
-    type: string; name: string; spreadPct: number; profitable: boolean
-    pair?: string; legs?: number[]
-  }[]
+  opportunities: { type: string; name: string; spreadPct: number; profitable: boolean; pair?: string }[]
   alerts: { type: string; name: string; spreadPct: number; profitable: boolean; pair?: string }[]
 }
 
@@ -17,6 +13,9 @@ const FX_EXPECTED: Record<string, number> = {
   KESm: 0.00768, NGNm: 0.00065, GHSm: 0.0685, ZARm: 0.0535,
   PHPm: 0.0173, XOFm: 0.00168, BRLm: 0.194, EURm: 1.15, GBPm: 1.35,
 }
+
+const ARB_ROUTER = '0x...' // Will be set after deploy
+const USDC = '0xcebA9300f2b948710d2653dD7B07f33A8B32118C'
 
 function spreadClass(pct: number): string {
   if (pct > 0.1) return 'high'
@@ -28,11 +27,53 @@ function formatSpread(pct: number): string {
   return `${pct > 0 ? '+' : ''}${pct.toFixed(4)}%`
 }
 
+declare global {
+  interface Window { ethereum?: any }
+}
+
 export default function Home() {
   const [data, setData] = useState<ScanResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTicker, setActiveTicker] = useState<string | null>(null)
+
+  // Wallet state
+  const [wallet, setWallet] = useState<string | null>(null)
+  const [walletBal, setWalletBal] = useState<string>('')
+  const [threshold, setThreshold] = useState('0.05')
+  const [agentStatus, setAgentStatus] = useState<string>('idle')
+  const [executing, setExecuting] = useState<string | null>(null)
+
+  const tickerSymbols = ['KESm/USDm', 'XOFm/USDm', 'BRLm/USDm', 'EURm/USDm', 'USDC/USDm', 'USDT/USDm', 'GBPm/USDm', 'NGNm/USDm', 'GHSm/USDm', 'ZARm/USDm']
+
+  // Connect wallet
+  const connectWallet = useCallback(async () => {
+    if (!window.ethereum) {
+      alert('Install MetaMask or Valora browser')
+      return
+    }
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      setWallet(accounts[0])
+      
+      // Get USDC balance
+      const bal = await window.ethereum.request({
+        method: 'eth_call',
+        params: [{
+          to: USDC,
+          data: '0x70a08231' + accounts[0].slice(2).padStart(64, '0') // balanceOf
+        }, 'latest']
+      })
+      const balNum = parseInt(bal, 16) / 1e6
+      setWalletBal(balNum.toFixed(2))
+    } catch (e: any) { setError(e.message) }
+  }, [])
+
+  // Disconnect
+  const disconnect = useCallback(() => {
+    setWallet(null)
+    setWalletBal('')
+  }, [])
 
   const fetchData = useCallback(async () => {
     try {
@@ -45,9 +86,7 @@ export default function Home() {
       setData(result)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Scan failed')
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }, [])
 
   useEffect(() => {
@@ -56,7 +95,23 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [fetchData])
 
-  const tickerSymbols = ['KESm/USDm', 'XOFm/USDm', 'BRLm/USDm', 'EURm/USDm', 'USDC/USDm', 'USDT/USDm', 'GBPm/USDm', 'NGNm/USDm', 'GHSm/USDm', 'ZARm/USDm']
+  // Execute a trade
+  const executeTrade = useCallback(async (opp: any) => {
+    if (!wallet) { alert('Connect wallet first'); return }
+    setExecuting(opp.name)
+    setAgentStatus(`executing ${opp.name}...`)
+
+    try {
+      // For now, just show what would happen
+      // The actual contract calls need the ArbRouter deployed
+      alert(`Would execute: ${opp.name} at ${opp.spreadPct}% spread\n\nFund the ArbRouter contract with USDC first.`)
+      setAgentStatus('idle')
+    } catch (e: any) {
+      setError(e.message)
+      setAgentStatus('error')
+    }
+    setExecuting(null)
+  }, [wallet])
 
   return (
     <div className="app-container">
@@ -74,10 +129,62 @@ export default function Home() {
             </span>
           )}
         </div>
-        <button className="btn-refresh" onClick={fetchData} disabled={loading}>
-          {loading && <span className="loading-spinner" style={{ width: 10, height: 10, borderWidth: 1.5, display: 'inline-block' }} />}
-          {loading ? '…' : '⟳'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+          {wallet ? (
+            <>
+              <span className="app-meta" style={{ fontSize: 10 }}>
+                {wallet.slice(0,6)}...{wallet.slice(-4)}
+                <span style={{ color: 'var(--color-celo-blue)' }}> | {walletBal} USDC</span>
+              </span>
+              <button className="btn-refresh" onClick={disconnect}>EXIT</button>
+            </>
+          ) : (
+            <button className="btn-refresh" onClick={connectWallet}>CONNECT WALLET</button>
+          )}
+          <button className="btn-refresh" onClick={fetchData} disabled={loading}>
+            {loading ? '…' : '⟳'}
+          </button>
+        </div>
+      </div>
+
+      {/* Agent Controls */}
+      <div className="panel" style={{ marginBottom: 'var(--sp-4)' }}>
+        <div className="panel-header">
+          <span>🤖 Agent Controls</span>
+          {wallet && (
+            <span className={`data-value ${agentStatus === 'idle' ? 'neutral' : agentStatus === 'error' ? 'loss' : 'gain'}`}
+                  style={{ fontSize: 10, textTransform: 'uppercase' }}>
+              {agentStatus}
+            </span>
+          )}
+        </div>
+        <div style={{ padding: 'var(--sp-3)', display: 'flex', alignItems: 'center', gap: 'var(--sp-4)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+            <span className="data-label">Min Spread:</span>
+            <input type="number" step="0.01" value={threshold} onChange={e => setThreshold(e.target.value)}
+                   style={{
+                     background: 'var(--bg-primary)', border: '1px solid var(--border-default)',
+                     color: 'var(--text-primary)', fontFamily: 'var(--font-mono)',
+                     padding: 'var(--sp-1) var(--sp-2)', width: 80, fontSize: 13
+                   }} />
+            <span className="data-value neutral" style={{ fontSize: 11 }}>%</span>
+          </div>
+          {wallet && (
+            <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
+              <button className="btn-refresh" onClick={() => setAgentStatus('running')}
+                      style={{ borderColor: 'var(--color-celo-blue)', color: 'var(--color-celo-blue)' }}>
+                ▶ START AGENT
+              </button>
+              <button className="btn-refresh" onClick={() => setAgentStatus('idle')}
+                      style={{ borderColor: 'var(--color-loss)', color: 'var(--color-loss)' }}>
+                ■ STOP
+              </button>
+            </div>
+          )}
+          {!wallet && (
+            <span className="data-value neutral" style={{ fontSize: 11 }}>Connect wallet to activate agent</span>
+          )}
+        </div>
       </div>
 
       {/* Ticker */}
@@ -93,11 +200,9 @@ export default function Home() {
               const dev = expected ? ((best.rate / expected) - 1) * 100 : null
               const devClass = dev && Math.abs(dev) > 0.1 ? (dev > 0 ? 'gain' : 'loss') : ''
               return (
-                <div
-                  key={`${sym}-${idx}`}
-                  className={`ticker-item ${activeTicker === sym ? 'active' : ''}`}
-                  onClick={() => setActiveTicker(activeTicker === sym ? null : sym)}
-                >
+                <div key={`${sym}-${idx}`}
+                     className={`ticker-item ${activeTicker === sym ? 'active' : ''}`}
+                     onClick={() => setActiveTicker(activeTicker === sym ? null : sym)}>
                   <span className="ticker-symbol">{sym.split('/')[0]}</span>
                   <span style={{ color: 'var(--text-primary)' }}>{best.rate.toFixed(6)}</span>
                   {dev !== null && (
@@ -115,7 +220,7 @@ export default function Home() {
       {/* Error */}
       {error && (
         <div className="panel" style={{ borderColor: 'var(--color-loss)', marginBottom: 'var(--sp-4)' }}>
-          <div className="panel-body" style={{ padding: 'var(--sp-3)', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
+          <div style={{ padding: 'var(--sp-3)', color: 'var(--color-loss)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
             ERR: {error}
           </div>
         </div>
@@ -133,19 +238,22 @@ export default function Home() {
 
       {data && (
         <>
-          {/* Alerts */}
-          {data.alerts.length > 0 && (
+          {/* Alerts above threshold */}
+          {data.alerts.filter(a => a.spreadPct >= parseFloat(threshold)).length > 0 && (
             <div className="alert-banner">
-              <span style={{ fontWeight: 600 }}>{data.alerts.length} SIGNAL{data.alerts.length > 1 ? 'S' : ''}</span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 'inherit' }}>
-                {data.alerts.map(a => a.type === 'triangular' ? a.name : a.pair || a.name).join(' · ')}
+              <span style={{ fontWeight: 600 }}>
+                {data.alerts.filter(a => a.spreadPct >= parseFloat(threshold)).length} SIGNALS ≥{threshold}%
+              </span>
+              <span style={{ color: 'var(--text-secondary)' }}>
+                {data.alerts.filter(a => a.spreadPct >= parseFloat(threshold)).map(a =>
+                  a.type === 'triangular' ? a.name : a.pair || a.name).join(' · ')}
               </span>
             </div>
           )}
 
-          {/* Panels */}
+          {/* Split Panels */}
           <div className="split-panels">
-            {/* Left: Opportunities */}
+            {/* Opportunities */}
             <div className="panel" style={{ border: 'none' }}>
               <div className="panel-header">
                 <span>Opportunities</span>
@@ -160,54 +268,59 @@ export default function Home() {
                       <th className="col-type"></th>
                       <th className="col-name">Route</th>
                       <th className="col-spread">Spread</th>
-                      <th className="col-status">Status</th>
+                      <th className="col-status" style={{ width: 80 }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.opportunities.length === 0 && (
-                      <tr>
-                        <td colSpan={4} style={{ padding: 'var(--sp-6) var(--sp-3)', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 12 }}>
-                          No arbitrage windows detected
-                        </td>
-                      </tr>
+                      <tr><td colSpan={4} style={{ padding: 'var(--sp-6) var(--sp-3)', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 12 }}>
+                        No arbitrage windows detected</td></tr>
                     )}
-                    {data.opportunities.map((o, i) => (
-                      <tr key={i}>
-                        <td className="col-type">
-                          <span className={`type-icon ${o.type === 'triangular' ? 'tri' : 'venue'}`}>
-                            {o.type === 'triangular' ? '△' : '○'}
-                          </span>
-                        </td>
-                        <td className="col-name">
-                          <span className="name-text">
-                            {o.type === 'triangular' ? o.name : (o.pair || o.name)}
-                          </span>
-                        </td>
-                        <td className="col-spread">
-                          <span className={`spread-badge ${spreadClass(o.spreadPct)}`}>
-                            {formatSpread(o.spreadPct)}
-                          </span>
-                        </td>
-                        <td className="col-status">
-                          <span className={`data-value ${o.spreadPct >= 0.01 ? 'warning' : 'neutral'}`}
-                                style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            {o.spreadPct >= 0.01 ? 'signal' : 'flat'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {data.opportunities.map((o, i) => {
+                      const aboveThreshold = o.spreadPct >= parseFloat(threshold)
+                      const isExecuting = executing === o.name
+                      return (
+                        <tr key={i}>
+                          <td className="col-type">
+                            <span className={`type-icon ${o.type === 'triangular' ? 'tri' : 'venue'}`}>
+                              {o.type === 'triangular' ? '△' : '○'}
+                            </span>
+                          </td>
+                          <td className="col-name">
+                            <span className="name-text">{o.type === 'triangular' ? o.name : (o.pair || o.name)}</span>
+                          </td>
+                          <td className="col-spread">
+                            <span className={`spread-badge ${spreadClass(o.spreadPct)}`}>
+                              {formatSpread(o.spreadPct)}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center', padding: 'var(--sp-1) var(--sp-2)' }}>
+                            {wallet && aboveThreshold && (
+                              <button onClick={() => executeTrade(o)} disabled={!!isExecuting}
+                                      className="btn-refresh" style={{
+                                padding: '2px 8px', fontSize: 10, borderColor: 'var(--color-celo-green)',
+                                color: 'var(--color-celo-green)'
+                              }}>
+                                {isExecuting ? '…' : '▶ EXEC'}
+                              </button>
+                            )}
+                            {wallet && !aboveThreshold && (
+                              <span className="data-value neutral" style={{ fontSize: 9 }}>WAIT</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Right: Rates */}
+            {/* Rates */}
             <div className="panel" style={{ border: 'none', borderLeft: '1px solid var(--border-default)' }}>
               <div className="panel-header">
                 <span>Rates</span>
-                <span className="data-value neutral" style={{ fontSize: 11 }}>
-                  {Object.keys(data.pairs).length} pairs
-                </span>
+                <span className="data-value neutral" style={{ fontSize: 11 }}>{Object.keys(data.pairs).length} pairs</span>
               </div>
               <div className="opp-scroll">
                 {Object.entries(data.pairs).map(([pair, rates]) => {
@@ -226,9 +339,8 @@ export default function Home() {
                           </span>
                         ))}
                         {dev !== null && (
-                          <span className={`data-value ${
-                            Math.abs(dev) > 0.1 ? (dev > 0 ? 'gain' : 'loss') : 'neutral'
-                          }`} style={{ fontSize: 11, minWidth: 48, textAlign: 'right' }}>
+                          <span className={`data-value ${Math.abs(dev) > 0.1 ? (dev > 0 ? 'gain' : 'loss') : 'neutral'}`}
+                                style={{ fontSize: 11, minWidth: 48, textAlign: 'right' }}>
                             {dev > 0 ? '+' : ''}{dev.toFixed(2)}%
                           </span>
                         )}
@@ -263,7 +375,7 @@ export default function Home() {
               <span style={{ margin: '0 var(--sp-3)', color: 'var(--border-accent)' }}>|</span>
               <span>30s</span>
               <span style={{ margin: '0 var(--sp-3)', color: 'var(--border-accent)' }}>|</span>
-              <span>CELO</span>
+              <span>ℤ{threshold}%</span>
             </div>
             <div>{data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—'}</div>
           </div>
