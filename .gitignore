@@ -2,3 +2,7 @@ node_modules/
 .next/
 *.tsbuildinfo
 next-env.d.ts
+.env
+agent_config.json
+agent_stats.json
+agent.control
