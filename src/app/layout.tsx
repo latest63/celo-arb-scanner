@@ -30,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="app-nav-title">Celo Arb</Link>
           </div>
           <div className="app-nav-links">
+            <Link href="/portfolio" className="app-nav-link">Portfolio</Link>
             <Link href="/signals" className="app-nav-link">Signals</Link>
             <Link href="/agent" className="app-nav-link">Agent</Link>
           </div>
