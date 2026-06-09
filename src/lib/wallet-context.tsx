@@ -40,6 +40,27 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setWallet(accounts[0])
       localStorage.setItem('celo-arb-wallet', accounts[0])
       setError(null)
+      // Auto-switch to Celo
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' })
+      if (chainId !== '0xa4ec') {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0xa4ec' }],
+        }).catch((e: any) => {
+          if (e.code === 4902) {
+            return window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0xa4ec',
+                chainName: 'Celo Mainnet',
+                nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
+                rpcUrls: ['https://forno.celo.org'],
+                blockExplorerUrls: ['https://celoscan.io'],
+              }],
+            })
+          }
+        })
+      }
     } catch (e: any) {
       setError(e.message || 'Connection failed')
     }
