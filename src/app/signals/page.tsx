@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useWallet } from '@/lib/wallet-context'
 
 interface ScanResult {
   block: number; timestamp: string
@@ -31,12 +32,13 @@ declare global {
 }
 
 export default function SignalsPage() {
+  const { wallet, connect, disconnect } = useWallet()
+
   const [data, setData] = useState<ScanResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTicker, setActiveTicker] = useState<string | null>(null)
 
-  const [wallet, setWallet] = useState<string | null>(null)
   const [walletBal, setWalletBal] = useState<string>('')
   const [threshold] = useState('0.05')
   const [executing, setExecuting] = useState<string | null>(null)
@@ -44,19 +46,22 @@ export default function SignalsPage() {
   const tickerSymbols = ['KESm/USDm', 'XOFm/USDm', 'BRLm/USDm', 'EURm/USDm', 'USDC/USDm', 'USDT/USDm', 'GBPm/USDm', 'NGNm/USDm', 'GHSm/USDm', 'ZARm/USDm']
 
   const connectWallet = useCallback(async () => {
-    if (!window.ethereum) { alert('Install MetaMask or Valora browser'); return }
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-      setWallet(accounts[0])
-      const bal = await window.ethereum.request({
-        method: 'eth_call',
-        params: [{ to: USDC, data: '0x70a08231' + accounts[0].slice(2).padStart(64, '0') }, 'latest']
-      })
-      setWalletBal((parseInt(bal, 16) / 1e6).toFixed(2))
-    } catch (e: any) { setError(e.message) }
-  }, [])
+    await connect()
+    if (window.ethereum && wallet) {
+      try {
+        const bal = await window.ethereum.request({
+          method: 'eth_call',
+          params: [{ to: USDC, data: '0x70a08231' + wallet.slice(2).padStart(64, '0') }, 'latest']
+        })
+        setWalletBal((parseInt(bal, 16) / 1e6).toFixed(2))
+      } catch {}
+    }
+  }, [connect, wallet])
 
-  const disconnect = useCallback(() => { setWallet(null); setWalletBal('') }, [])
+  const disconnectWallet = useCallback(() => {
+    disconnect()
+    setWalletBal('')
+  }, [disconnect])
 
   const fetchData = useCallback(async () => {
     try {
@@ -100,7 +105,7 @@ export default function SignalsPage() {
                 {wallet.slice(0,6)}...{wallet.slice(-4)}
                 <span style={{ color: 'var(--color-celo-blue)' }}> | {walletBal} USDC</span>
               </span>
-              <button className="btn-refresh" onClick={disconnect}>EXIT</button>
+              <button className="btn-refresh" onClick={disconnectWallet}>EXIT</button>
             </>
           ) : (
             <button className="btn-refresh" onClick={connectWallet}>CONNECT WALLET</button>

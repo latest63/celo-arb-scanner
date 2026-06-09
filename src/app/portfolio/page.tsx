@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useWallet } from '@/lib/wallet-context'
 
 const AGENT_API = 'https://api.virtusub.xyz/arb'
 
@@ -14,21 +15,14 @@ const TOKENS = [
   { symbol: 'NGNm', address: '0xE2702Bd97ee33c88c8f6f92DA3B733608aa76F71', decimals: 18 },
 ]
 
-// ERC20 transfer ABI
-const ERC20_ABI = [
-  { constant: false, inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'transfer', outputs: [{ name: '', type: 'bool' }], type: 'function' },
-  { constant: true, inputs: [{ name: 'owner', type: 'address' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], type: 'function' },
-  { constant: true, inputs: [], name: 'decimals', outputs: [{ name: '', type: 'uint8' }], type: 'function' },
-]
-
 declare global {
   interface Window { ethereum?: any }
 }
 
 export default function PortfolioPage() {
   const router = useRouter()
+  const { wallet, connect, disconnect, switchToCelo, error: walletErr, clearError } = useWallet()
 
-  const [wallet, setWallet] = useState<string | null>(null)
   const [balances, setBalances] = useState<Record<string, { wallet: number; contract: number }>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -77,43 +71,11 @@ export default function PortfolioPage() {
     setLoading(false)
   }, [wallet])
 
-  const connectWallet = useCallback(async () => {
-    if (!window.ethereum) { alert('Install MetaMask or Valora browser'); return }
-    try {
-      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-      setWallet(accounts[0])
-    } catch (e: any) { setError(e.message) }
-  }, [])
-
-  const disconnect = useCallback(() => { setWallet(null); setBalances({}) }, [])
+  // Switch chain to Celo (uses shared switchToCelo from context)
 
   useEffect(() => {
     if (wallet) fetchBalances()
   }, [wallet, fetchBalances])
-
-  // Switch chain to Celo
-  const switchToCelo = useCallback(async () => {
-    if (!window.ethereum) return
-    try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0xa4ec' }], // Celo mainnet
-      })
-    } catch (e: any) {
-      if (e.code === 4902) {
-        await window.ethereum.request({
-          method: 'wallet_addEthereumChain',
-          params: [{
-            chainId: '0xa4ec',
-            chainName: 'Celo Mainnet',
-            nativeCurrency: { name: 'CELO', symbol: 'CELO', decimals: 18 },
-            rpcUrls: ['https://forno.celo.org'],
-            blockExplorerUrls: ['https://celoscan.io'],
-          }],
-        })
-      }
-    }
-  }, [])
 
   // Deposit: transfer tokens from wallet to contract
   const deposit = useCallback(async () => {
@@ -194,7 +156,7 @@ export default function PortfolioPage() {
               <button className="btn-refresh" onClick={disconnect}>EXIT</button>
             </>
           ) : (
-            <button className="btn-refresh" onClick={connectWallet}>CONNECT WALLET</button>
+            <button className="btn-refresh" onClick={connect}>CONNECT WALLET</button>
           )}
         </div>
       </div>
