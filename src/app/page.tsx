@@ -24,7 +24,7 @@ export default function Home() {
         <div className="landing-card">
           <div className="landing-card-icon">🤖</div>
           <h3>Auto Agent</h3>
-          <p>Deploy an autonomous trading agent that executes profitable trades 24/7 on your VPS.</p>
+          <p>Deploy an autonomous trading agent that executes profitable trades 24/7.</p>
         </div>
         <div className="landing-card">
           <div className="landing-card-icon">⚡</div>
