@@ -250,7 +250,7 @@ export default function Home() {
           </div>
         </div>
         {/* Settings Row */}
-        <div style={{ padding: 'var(--sp-3) var(--sp-3) 0' }}>
+        <div className="agent-settings-row">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
             <span className="data-label">Min Spread:</span>
             <input type="number" step="0.01" value={threshold}
@@ -264,40 +264,34 @@ export default function Home() {
                      padding: 'var(--sp-1) var(--sp-2)', width: 80, fontSize: 13
                    }} />
             <span className="data-value neutral" style={{ fontSize: 11 }}>%</span>
-            <span className="data-label" style={{ marginLeft: 'var(--sp-3)' }}>Interval:</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+            <span className="data-label">Interval:</span>
             <span className="data-value neutral" style={{ fontSize: 11 }}>
               {agent?.config?.interval || 30}s
             </span>
           </div>
         </div>
         {/* Controls Row */}
-        <div style={{ padding: 'var(--sp-2) var(--sp-3) var(--sp-3)' }}>
+        <div className="agent-controls-row">
           {agent ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                <span style={{ width: 10, height: 10, borderRadius: '50%', background: isAgentRunning ? 'var(--color-celo-green)' : 'var(--text-tertiary)', display: 'inline-block' }} />
+                <span className={`data-value ${isAgentRunning ? 'gain' : 'neutral'}`} style={{ fontSize: 12, fontWeight: 600 }}>
+                  {isAgentRunning ? 'RUNNING' : 'IDLE'}
+                </span>
+              </div>
               {isAgentRunning ? (
-                <>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--color-celo-green)', display: 'inline-block' }} />
-                  <span className="data-value gain" style={{ fontSize: 12, fontWeight: 600 }}>AGENT RUNNING</span>
-                  <button className="btn-refresh" onClick={stopAgent} disabled={agentBusy}
-                          style={{
-                            borderColor: 'var(--color-loss)', color: 'var(--color-loss)',
-                            padding: '4px 16px', fontSize: 12, fontWeight: 600
-                          }}>
-                    ■ STOP
-                  </button>
-                </>
+                <button className="btn-refresh" onClick={stopAgent} disabled={agentBusy}
+                        style={{ borderColor: 'var(--color-loss)', color: 'var(--color-loss)', padding: '4px 16px', fontSize: 12, fontWeight: 600 }}>
+                  ■ STOP
+                </button>
               ) : (
-                <>
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--text-tertiary)', display: 'inline-block' }} />
-                  <span className="data-value neutral" style={{ fontSize: 12, fontWeight: 600 }}>AGENT IDLE</span>
-                  <button className="btn-refresh" onClick={startAgent} disabled={agentBusy}
-                          style={{
-                            borderColor: 'var(--color-celo-blue)', color: 'var(--color-celo-blue)',
-                            padding: '4px 16px', fontSize: 12, fontWeight: 600
-                          }}>
-                    ▶ START AGENT
-                  </button>
-                </>
+                <button className="btn-refresh" onClick={startAgent} disabled={agentBusy}
+                        style={{ borderColor: 'var(--color-celo-blue)', color: 'var(--color-celo-blue)', padding: '4px 16px', fontSize: 12, fontWeight: 600 }}>
+                  ▶ START
+                </button>
               )}
               <span className="data-value neutral" style={{ fontSize: 10, marginLeft: 'auto' }}>
                 {agent.stats.scans} scans · {agent.stats.trades} trades
